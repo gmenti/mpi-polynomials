@@ -1,0 +1,1 @@
+mpicc Sequencial.c -o Sequencial -fopenmp
