@@ -5,11 +5,11 @@
 #include "mpi.h"
 
 /* CONTANTES */
-#define GRAU         400
-#define TAM_INI  1000000
-#define TAM_INC  1000000
-#define TAM_MAX 10000000
-#define BAG_SIZE   100
+#define GRAU        400
+#define TAM_INI     1000000
+#define TAM_INC     1000000
+#define TAM_MAX     2000000
+#define BAG_SIZE    100
 
 /* VARIAVEIS GLOBAIS */
 double x[TAM_MAX], y[TAM_MAX], gabarito[TAM_MAX];
@@ -93,16 +93,13 @@ int main(int argc, char **argv)
       {
         double processBag[processBagCount];
         int p = getProcessIdToSendMessage(n);
-        // printf("root id=%d event=mounting_message to=%d size=%d\n", id, p, processBagCount);
         for (int k = 0; k < processBagCount; k++) {
           int index = j + k;
           processBag[k] = x[index];
         }
-        // printf("root id=%d event=sent_message to=%d\n", id, p);
         MPI_Send(&processBag, processBagCount, MPI_DOUBLE, p, 1, MPI_COMM_WORLD);
       }
 
-// printf("root id=%d event=all_messages_sent\n", id);
       lastMessageReceiverId = 0;
       for (int j = 0; j <= size; j += processBagCount)
       {
@@ -116,21 +113,28 @@ int main(int argc, char **argv)
         }
       }
 
-      // printf("root id=%d event=all_messages_received\n", id);
-
       tempo += MPI_Wtime();
       /* Verificacao */
       for (i = 0; i < size; ++i)
       {
         if (y[i] != gabarito[i])
         {
-          //  printf("%f != %f i=%d\n", y[i], gabarito[i], i);
           erro("verificacao falhou!\n");
         }
       }
       /* Mostra tempo */
       printf("%d %lf\n", size, tempo);
     }
+
+    for (int p = 1; p < n; p++) {
+      double finishbag[processBagCount];
+      for (int j = 0; j < processBagCount; j++) {
+        finishbag[j] = -1.0;
+      }
+      MPI_Send(&finishbag, processBagCount, MPI_DOUBLE, p, 1, MPI_COMM_WORLD);
+    }
+
+    MPI_Finalize();
   }
   else
   {
@@ -140,16 +144,18 @@ int main(int argc, char **argv)
     {
       double processBag[processBagCount];
       MPI_Recv(&processBag, processBagCount, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
+      if (processBag[0] == -1.0) {
+        MPI_Finalize();
+        break; 
+      }
       receivedMsgs++;
       double result[processBagCount];
       for (int i = 0; i < processBagCount; i++)
       {
         result[i] = polinomio(a, processBag[i]);
       }
-      // printf("slave id=%d event=send_msg\n", id);
       MPI_Send(&result, processBagCount, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
     }
   }
-  MPI_Finalize();
   return 0;
 }
